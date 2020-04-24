@@ -1,0 +1,25 @@
+// This is a comment
+
+/*
+This is a comment
+that spans multiple lines
+*/
+
+int32 GlobalInt; // declare a variable (initialize to 0)
+float GlobalFloat = 4.0F; // delcare and initialize a variable
+
+func: ExecuteAction(int32 argument) -> int32
+{
+	int32 output = argument;
+	output *= 2;
+	if (output > 10)
+	{
+		output = 10;
+	}
+	return output;
+}
+
+func: DoSomething()
+{
+	print("This is some printed output");
+}
