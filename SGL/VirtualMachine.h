@@ -10,7 +10,7 @@ public:
 
 	VirtualMachine();
 
-	void execute_bytecode(char* code, size_t bufferSize);
+	void execute_bytecode(std::uint8_t* code, size_t bufferSize);
 
 private:
 

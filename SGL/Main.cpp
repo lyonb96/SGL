@@ -83,7 +83,7 @@ int main(const char** argv, int argc)
 	register_type<std::string>("string");
 
 	VirtualMachine vm;
-	char bytecode[11];
+	std::uint8_t bytecode[11];
 	bytecode[0] = INT_CONST;
 	bytecode[1] = 0;
 	bytecode[2] = 0;

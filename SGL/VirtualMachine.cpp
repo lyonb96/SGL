@@ -1,5 +1,6 @@
 #include "VirtualMachine.h"
 
+#include "Helpers.h"
 #include "Instructions.h"
 
 #include <iostream>
@@ -14,7 +15,7 @@ VirtualMachine::VirtualMachine()
 	: VirtualMachine(0)
 {}
 
-void VirtualMachine::execute_bytecode(char* code, size_t bufferSize)
+void VirtualMachine::execute_bytecode(std::uint8_t* code, size_t bufferSize)
 {
 	if (code)
 	{
@@ -22,20 +23,14 @@ void VirtualMachine::execute_bytecode(char* code, size_t bufferSize)
 		size_t execPos = 0;
 		while (!isDone && execPos < bufferSize)
 		{
-			std::uint8_t instruction = static_cast<std::uint8_t>(code[execPos++]);
+			std::uint8_t instruction = (code[execPos++]);
 			switch (instruction)
 			{
 				case INT_CONST:
 				{
 					// next 4 bytes are the constant to push
-					union
-					{
-						char* as_char;
-						int* as_int;
-					};
-					as_char = code + execPos;
-					_stack.push<int>(*as_int);
-
+					int constant = read_from_buffer<int>(code + execPos);
+					_stack.push<int>(constant);
 					execPos += sizeof(int);
 					break;
 				}

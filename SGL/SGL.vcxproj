@@ -157,6 +157,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Compiler.h" />
+    <ClInclude Include="Helpers.h" />
     <ClInclude Include="Instructions.h" />
     <ClInclude Include="Script.h" />
     <ClInclude Include="SGLTypes.h" />

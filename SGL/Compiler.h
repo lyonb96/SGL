@@ -24,7 +24,11 @@ enum class SGLResult
     // Error when a missing parentheses is found
     SGL_ERR_MISSING_PARENTHESES,
     // Error when a variable or function identifier is invalid
-    SGL_ERR_INVALID_IDENTIFIER
+    SGL_ERR_INVALID_IDENTIFIER,
+    // Error when an operator is found but there is no operand to the left of it
+    SGL_ERR_MISSING_LEFT_OPERAND,
+    // Error when an operator is found but there is no operand to the right of it
+    SGL_ERR_MISSING_RIGHT_OPERAND
 };
 
 /**
