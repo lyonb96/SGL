@@ -12,11 +12,11 @@
 struct SGLType
 {
 	// Name of the type as it is written in SGL
-	std::string TypeName;
+	std::string TypeName = "";
 	// Size of the type in bytes
-	int TypeSize;
+	int TypeSize = 0;
 	// Byte alignment required by the type
-	int TypeAlignment;
+	int TypeAlignment = 0;
 };
 
 // Map of registered types and their specifiers
@@ -59,6 +59,15 @@ void register_type(const std::string& specifier)
 	// Add it to the type map
 	get_types()[specifier] = type;
 }
+
+/**
+ * Registers SGL's PODs:
+ * int32 - 32-bit signed int
+ * float - 32-bit float
+ * bool  - true/false
+ * void  - typeless expression (mainly used internally)
+ */
+void register_datatypes();
 
 // Helper macro to register the type with a name exactly matching the C++ type's name
 #define SGL_REGISTER_TYPE(TYPE) register_type<TYPE>(#TYPE);

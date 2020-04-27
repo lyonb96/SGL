@@ -7,11 +7,14 @@
 #include <string>
 #include <vector>
 
+#include "Instructions.h"
 #include "SGLTypes.h"
+
+constexpr const std::size_t MAX_SIZE = std::numeric_limits<std::size_t>::max();
 
 struct SGLOperator
 {
-	const char* Operator;
+	std::string Operator;
 	int Precedence;
 };
 
@@ -21,7 +24,7 @@ std::vector<SGLOperator> SGL_ops = { { "=", 0 }, { "-", 1 }, { "+", 1 }, { "%", 
 struct VariableState
 {
 	std::string VariableIdentifier = "";
-	std::string VariableType = "";
+	SGLType VariableType;
 
 	/**
 	 * Returns true if this VariableState slot is being used
@@ -68,6 +71,24 @@ struct CompilerState
 		// If all are in use, add a new one and return its index
 		Variables.push_back(VariableState());
 		return Variables.size() - 1;
+	}
+
+	/**
+	 * Returns the slot that the requested identifier is stored at
+	 * Can also return size_t's max value if no var is found with that identifier
+	 */
+	std::size_t GetSlotForIdentifier(const std::string& id)
+	{
+		std::size_t slot = 0;
+		for (slot = 0; slot < Variables.size(); ++slot)
+		{
+			if (Variables[slot].VariableIdentifier == id)
+			{
+				return slot;
+			}
+		}
+
+		return MAX_SIZE;
 	}
 };
 
@@ -125,36 +146,48 @@ bool is_str_int(const std::string& in)
 
 /**
  * Returns true if the string is a float literal
- * Note that this will not return true if the string does not contain a decimal point
- * And will also return false if there are any alphabetical characters besides Ff
  */
 bool is_str_float(const std::string& in)
 {
-	// first, verify that it has a decimal
-	// if no decimal, it cannot be a float literal
-	if (in.find('.') == std::string::npos)
-	{
-		return false;
-	}
+	// Check for sign
+	bool isNegative = in.front() == '-';
 
-	// check if it starts with a sign
-	auto start = in.front();
-	auto reqLen = in.length();
-	if (start == '-')
-	{
-		// skip sign
-		--reqLen;
-	}
-	// check if it ends with an F or f
+	// Check if it ends with Ff
 	auto end = in.back();
 	if (end == 'f' || end == 'F')
 	{
-		// skip the Ff in the count_if
-		--reqLen;
-	}
-	size_t count = std::count_if(in.begin(), in.end(), [](unsigned char c) -> bool { return std::isdigit(c) || c == '.'; });
+		// If the string ends with Ff, and the rest is numbers (or .), it is a float literal
+		auto first = isNegative ? in.begin() + 1 : in.begin();
+		auto last = in.end() - 1;
+		auto count = std::count_if(first, last, [](unsigned char c) -> bool { return std::isdigit(c) || c == '.'; });
 
-	return count == reqLen;
+		return count == (last - first);
+	}
+	else
+	{
+		// if the string doesn't end with Ff, then it has to contain a decimal tobe a float
+		auto dec = in.find('.');
+		if (dec == std::string::npos)
+		{
+			return false;
+		}
+
+		// if it contains a decimal, the rest has to be numbers only
+		auto first = isNegative ? in.begin() + 1 : in.begin();
+		auto last = in.end();
+		auto count = std::count_if(first, last, [](unsigned char c) -> bool { return std::isdigit(c) || c == '.'; });
+
+		return count == (last - first);
+	}
+}
+
+/**
+ * Returns true if the string is a bool literal
+ * "true" or "false"
+ */
+bool is_str_bool(const std::string& in)
+{
+	return (in == "true" || in == "false");
 }
 
 /**
@@ -206,7 +239,7 @@ bool is_in_parentheses(const std::string& str, std::size_t i)
 
 struct VariableDeclaration
 {
-	std::string Type; // type string
+	SGLType Type; // type
 	std::string Identifier; // variable identifier
 	std::string Value; // assigned value at creation, if any
 	SGLResult Result; // result of parsing the variable declaration
@@ -215,7 +248,6 @@ struct VariableDeclaration
 VariableDeclaration parse_variable(std::string& line)
 {
 	VariableDeclaration decl;
-	decl.Type = "";
 	decl.Identifier = "";
 	decl.Value = "";
 	decl.Result = SGLResult::SGL_OK;
@@ -231,7 +263,7 @@ VariableDeclaration parse_variable(std::string& line)
 
 	// otherwise, the substring from 0 to typeEnd is the type
 	std::string typeStr = line.substr(0, typeEnd);
-	decl.Type = typeStr;
+	//decl.Type = typeStr;
 
 	// Check to verify that this type exists
 	if (!is_type_registered(typeStr))
@@ -240,6 +272,8 @@ VariableDeclaration parse_variable(std::string& line)
 		decl.Result = SGLResult::SGL_ERR_UNKNOWN_TYPE;
 		return decl;
 	}
+
+	decl.Type = get_types()[typeStr];
 
 	// erase the type from the line now that it's parsed
 	line.erase(0, typeEnd);
@@ -419,35 +453,105 @@ SGLResult parse_statement(std::string statement)
 	return SGLResult::SGL_OK;
 }
 
-void parse_expression(std::string expr)
+struct ExpressionResult
+{
+	bool Success;
+	SGLType ResultType;
+	std::size_t VarSlot;
+};
+
+/**
+ * Special function for parsing the left operand of an assignment operator
+ * This side of the function should always be a variable, so the return is
+ * the variable slot the var is in, or MAX_SIZE if it's not a variable
+ */
+std::size_t parse_assignment_left(std::string expr)
+{
+	// The only thing this can be is either an existing variable or a new variable declaration
+	// if it's a new variable, there will be whitespace, so check for that first
+	bool hasWhitespace = false;
+	for (auto c : expr)
+	{
+		if (is_whitespace(c))
+		{
+			hasWhitespace = true;
+			break;
+		}
+	}
+
+	if (hasWhitespace)
+	{
+		// parse variable declaration
+		VariableDeclaration decl = parse_variable(expr);
+		if (decl.Result != SGLResult::SGL_OK)
+		{
+			return MAX_SIZE;
+		}
+
+		std::size_t slot = SGL_CompilerState.GetAvailableVariableSlot();
+		SGL_CompilerState.Variables[slot].VariableType = decl.Type;
+		SGL_CompilerState.Variables[slot].VariableIdentifier = decl.Identifier;
+
+		return slot;
+	}
+	else
+	{
+		//expr should be an existing variable
+		std::size_t slot = SGL_CompilerState.GetSlotForIdentifier(expr);
+
+		return slot;
+	}
+}
+
+ExpressionResult parse_expression(std::string expr)
 {
 	/**
 	 * The algorithm:
 	 * 
+	 * 0) Before anything else happens, find function calls and parse them first
 	 * 1) Strip parentheses surrounding whole expression, if present
 	 * 2) Find the lowest-precedence operator that is not in parentheses
-	 * 3) Split into left and right operands
-	 * 4a) (Left first then right) if operand contains any more operators, call parse_expression(operand)
-	 * 4b) if operand does not contain any more operators, emit instructions for the operand
-	 * 5) Perform the operation for the original operator
+	 * 3a) If operator is found, split into left and right operand and recursively parse them (left then right)
+	 * 3b) Emit instruction(s) to execute the operator that was found
+	 * 4a) If no operator is found, the operand must be either a constant or variable
+	 * 4b) Emit instruction(s) to load the constant or variable to the stack
 	 */
+
+	//std::cout << "Parsing expression: " << expr << std::endl;
+
+	// prepare result struct
+	ExpressionResult result;
+	result.Success = true;
+	result.VarSlot = MAX_SIZE;
 
 	// first, some pre-work
 	strip_leading_whitespace(expr);
 	strip_tailing_whitespace(expr);
 	if (expr.back() == ';') expr.pop_back();
 
+	// step zero - find and parse function calls before anything else
+	// this will be implemented at a later time, but the gist will be to
+	// detect function calls, find the arg list, call parse_expression on each arg,
+	// and then call the function. Store the result to a temporary variable, and do
+	// expr.replace() to replace the function call with the identifier of the temp
+	// variable. This ensures that all function calls are handled before anything
+	// else, and eliminates any possible ambiguity between precedence-modifying
+	// parantheses and function argument lists
+
 	// step one - check if expression is wrapped in parentheses
 	while (expr.front() == '(' && expr.back() == ')')
 	{
 		// funny story... just because it starts and ends with parens doesn't mean it's all in parens
-		// need to verify that all chars of string are in parens
+		// For example: (x + 5) / (y * 3) starts with ( and ends with ) but contains an op outside of
+		// those parentheses. Naively checking if it only starts and ends with () results in a syntax
+		// error when we strip the parentheses, as we're left with "x + 5) / (y * 3"
+		// so we need to verify that all chars of string are in parens before erasing
 		bool doErase = true;
 		for (std::size_t i = 1; i < expr.length() - 1; ++i)
 		{
 			if (!is_in_parentheses(expr, i))
 			{
-				// if any character is out of parens, don't erase
+				// if any character is out of parens, don't erase the surrounding parens
 				doErase = false;
 				break;
 			}
@@ -467,10 +571,16 @@ void parse_expression(std::string expr)
 	}
 
 	// step two - find the lowest-precedence operator that is not in parentheses
+	// if two operators are found with the same precedence, the one further right is selected first
 	std::size_t opPos = std::string::npos;
-	SGLOperator foundOp = { nullptr, 999 };
+	SGLOperator foundOp = { "", 999 };
 	for (auto op : SGL_ops)
 	{
+		if (op.Precedence > foundOp.Precedence)
+		{
+			break;
+		}
+
 		// check if expression contains operator
 		std::size_t thisOpPos = expr.find(op.Operator);
 		if (thisOpPos == std::string::npos)
@@ -478,14 +588,23 @@ void parse_expression(std::string expr)
 			continue;
 		}
 
+		// verify the operator is not in parens
 		if (is_in_parentheses(expr, thisOpPos))
 		{
 			continue;
 		}
 		else
 		{
-			if (op.Precedence <= foundOp.Precedence && opPos > thisOpPos)
+			if (op.Precedence < foundOp.Precedence)
 			{
+				// if this operator's precedence is lower than what we have now, store it without question
+				foundOp = op;
+				opPos = thisOpPos;
+			}
+			else if (op.Precedence == foundOp.Precedence && opPos < thisOpPos)
+			{
+				// possible second case, if this operator's precedence is equal, but comes up later in the string
+				// we'll use it instead (to ensure left-to-right parsing)
 				foundOp = op;
 				opPos = thisOpPos;
 			}
@@ -495,29 +614,215 @@ void parse_expression(std::string expr)
 	// Check if there is an operator or if this is something else
 	if (opPos != std::string::npos)
 	{
-		// operator found
-		//std::cout << "Found this operator: " << expr[opPos] << " in this expression: " << expr << std::endl;
+		// step 3a - operator found, split into left and right and recursively parse
+		// note that some operators, notably assignment (=) and increment/decrement
+		// will have special handling here
 
-		// split into left and right operands
 		std::string leftOp = expr.substr(0, opPos);
-		parse_expression(leftOp);
 		std::string rightOp = expr.substr(opPos + 1);
-		parse_expression(rightOp);
 
-		// emit instruction for the operation
-		std::cout << "do op " << expr[opPos] << std::endl;
+		if (foundOp.Operator == "=")
+		{
+			auto leftSlot = parse_assignment_left(leftOp);
+			if (leftSlot == MAX_SIZE)
+			{
+				result.Success = false;
+				return result;
+			}
+
+			auto rightResult = parse_expression(rightOp);
+			if (!rightResult.Success)
+			{
+				result.Success = false;
+				return result;
+			}
+
+			SGLType leftType = SGL_CompilerState.Variables[leftSlot].VariableType;
+			SGLType rightType = rightResult.ResultType;
+
+			if (leftType.TypeName != rightType.TypeName)
+			{
+				// need to cast right side
+				SGLInstruction cast = get_cast_instruction(rightType, leftType);
+			}
+
+			std::cout << "INT_STORE " << leftSlot << std::endl;
+		}
+		else
+		{
+			auto leftResult = parse_expression(leftOp);
+
+			if (!leftResult.Success)
+			{
+				result.Success = false;
+				return result;
+			}
+
+			auto rightResult = parse_expression(rightOp);
+
+			if (!rightResult.Success)
+			{
+				result.Success = false;
+				return result;
+			}
+
+			if (foundOp.Operator == "=")
+			{
+				//// assignment is special
+				//// The left expression result has to have a stored variable slot
+				//// otherwise the left operand isn't a variable and thus cannot be assigned to
+				//if (leftResult.VarSlot == MAX_SIZE)
+				//{
+				//	// no variable in left operand, therefore failure
+				//	result.Success = false;
+				//	result.ResultType = get_types()["void"];
+	
+				//	return result;
+				//}
+
+				//result.ResultType = leftResult.ResultType;
+				//result.VarSlot = MAX_SIZE;
+				//result.ResultType = get_types()["void"];
+				//std::cout << "INT_STORE " << result.VarSlot << std::endl;
+	
+				//return result;
+			}
+			else
+			{
+				// check if the types on either side are equal
+				if (leftResult.ResultType.TypeName != rightResult.ResultType.TypeName)
+				{
+					// If types are not the same, the right operand needs to be cast to the left operand if possible
+					SGLType leftType = leftResult.ResultType;
+					SGLType rightType = rightResult.ResultType;
+
+					// if either type is void, it's an illegal operand
+					if (leftType.TypeSize == 0 || rightType.TypeSize == 0)
+					{
+						result.Success = false;
+						return result;
+					}
+
+					// get cast instruction needed
+					SGLInstruction cast = get_cast_instruction(rightType, leftType);
+					
+					// emit cast instruction
+				}
+
+				result.ResultType = leftResult.ResultType;
+
+				// step 3b - emit instruction for the operation
+				if (foundOp.Operator == "*")
+				{
+					std::cout << "INT_MUL" << std::endl;
+				}
+				else if (foundOp.Operator == "+")
+				{
+					std::cout << "INT_ADD" << std::endl;
+				}
+				else if (foundOp.Operator == "-")
+				{
+					std::cout << "INT_SUB" << std::endl;
+				}
+				else if (foundOp.Operator == "/")
+				{
+					std::cout << "INT_DIV" << std::endl;
+				}
+				else if (foundOp.Operator == "%")
+				{
+					std::cout << "INT_MOD" << std::endl;
+				}
+			}
+		}
+		return result;
 	}
 	else
 	{
-		// no operator
-		// that means this expression has to be either a variable or a constant
-		// std::cout << "push " << expr << std::endl;
-		
+		// step 4a - no operator found
+		// This means that "expr" can be one of four things
+		// 1 - a variable declaration (such as int32 i)
+		// 2 - a variable reference (such as i)
+		// 3 - a constant (such as 4, 18F, false, etc)
+
+		// let's check for each one
+		// constants and variable references cannot have whitespace in them, so we'll check for that first
+		bool hasWhitespace = false;
+		std::size_t whitespacePos = 0;
+		for (auto c : expr)
+		{
+			if (is_whitespace(c))
+			{
+				hasWhitespace = true;
+				break;
+			}
+			++whitespacePos;
+		}
+
+		if (hasWhitespace)
+		{
+			// the only thing this expression can legally be now is a variable declaration
+			VariableDeclaration varDecl = parse_variable(expr);
+			if (varDecl.Result != SGLResult::SGL_OK)
+			{
+				std::cerr << "Failed to parse expression " << expr << std::endl;
+				result.Success = false;
+				return result;
+			}
+			
+			// make sure this isn't a redeclaration of an existing variable
+			if (SGL_CompilerState.GetSlotForIdentifier(varDecl.Identifier) != MAX_SIZE)
+			{
+				std::cerr << "Cannot declare two variables with the same identifier!" << std::endl;
+				result.Success = false;
+				return result;
+			}
+
+			// if all is well, push this to the variable list
+			std::size_t varPos = SGL_CompilerState.GetAvailableVariableSlot();
+			SGL_CompilerState.Variables[varPos] = { varDecl.Identifier, varDecl.Type };
+
+			result.Success = true;
+			result.VarSlot = varPos;
+			result.ResultType = varDecl.Type;
+
+			return result;
+		}
+		else
+		{
+			// step 4b - emit instruction(s) to load the constant or variable
+
+			// expression must be constant or existing variable name
+			auto slot = SGL_CompilerState.GetSlotForIdentifier(expr);
+			if (slot != MAX_SIZE)
+			{
+				// variable found
+				// emit instruction to load variable
+				// for now, int is supported only
+				std::cout << "INT_LOAD " << slot << std::endl;
+				result.ResultType = SGL_CompilerState.Variables[slot].VariableType;
+				result.VarSlot = slot;
+				return result;
+			}
+			else
+			{
+				// now it has to be a constant, otherwise syntax error
+				if (is_str_int(expr))
+				{
+					int value = std::stoi(expr, nullptr, 0);
+					std::cout << "INT_CONST " << value << std::endl;
+
+					result.ResultType = get_types()["int32"];
+					return result;
+				}
+				else
+				{
+					std::cerr << "Not sure what " << expr << " is..." << std::endl;
+					result.Success = false;
+					return result;
+				}
+			}
+		}
 	}
-
-	// step three - split into left and right operands
-
-	// step four - 
 }
 
 SGLResult compile_sgl_function(std::string& source)
@@ -709,7 +1014,7 @@ SGLResult compile_sgl(std::string source)
 			// now erase the line
 			source.erase(0, endOfStatement + 1);
 
-			std::cout << "Variable declaration, type=\"" << var.Type << "\" id=\"" << var.Identifier << "\" val=\"" << var.Value << "\"" << std::endl;
+			std::cout << "Variable declaration, type=\"" << var.Type.TypeName << "\" id=\"" << var.Identifier << "\" val=\"" << var.Value << "\"" << std::endl;
 			auto pos = SGL_CompilerState.GetAvailableVariableSlot();
 			SGL_CompilerState.Variables[pos].VariableIdentifier = var.Identifier;
 			SGL_CompilerState.Variables[pos].VariableType = var.Type;
@@ -737,20 +1042,24 @@ void execute_compiler_test()
 
 	std::cout << "testing is_str_float():" << std::endl;
 	TEST_MACRO(is_str_float, "12345.0F", 1);
-	TEST_MACRO(is_str_float, "-58F", 0);
+	TEST_MACRO(is_str_float, "-58F", 1);
 	TEST_MACRO(is_str_float, "-34234234.", 1);
 	TEST_MACRO(is_str_float, "122", 0);
 	TEST_MACRO(is_str_float, "This is a long string with numbers (123) that ends with f", 0);
 
 	std::cout << "testing is_in_parentheses():" << std::endl;
-	PARENS_TEST("Pooping!!!!!", 5);
+	PARENS_TEST("Some words", 5);
 	PARENS_TEST("(Hello, world!)", 4);
 	PARENS_TEST("complicated! (a)", 15);
 	PARENS_TEST("()()() () (((((egg))))) egg ()() ()", 16); // 1
 	PARENS_TEST("()()() () (((((egg))))) egg ()() ()", 25); // 0
 
 	std::cout << "Testing expression parsing:" << std::endl;
-	parse_expression("int32 i = 10 * (w + z * (8 * GetValue())) % y / (x + 1);"); // complex nested parens
+	parse_expression("int32 x = 5;");
+	parse_expression("int32 y = 12;");
+	parse_expression("int32 z = 6;");
+	parse_expression("int32 w = 8;");
+	parse_expression("int32 i = 10 * (w + z * (8 * x)) % y / (x + 1);"); // complex nested parens
 	//parse_statement("i = (((x + 5) * (y / 3)) + 50) + (z * 2)"); // complex nested
 	//parse_statement("int32 i = ((((x + 5) * y) / z) + w)"); // simple nested
 	//parse_statement("float x = 5;"); // simple assignment

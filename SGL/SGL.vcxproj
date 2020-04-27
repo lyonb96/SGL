@@ -152,6 +152,7 @@
   <ItemGroup>
     <ClCompile Include="Compiler.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="SGLTypes.cpp" />
     <ClCompile Include="Stack.cpp" />
     <ClCompile Include="VirtualMachine.cpp" />
   </ItemGroup>

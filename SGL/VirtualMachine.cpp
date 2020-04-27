@@ -36,11 +36,43 @@ void VirtualMachine::execute_bytecode(std::uint8_t* code, size_t bufferSize)
 				}
 				case INT_STORE:
 				{
-					// piss. now i have to write the variable store.
+					// grab the byte that corresponds to the slot to store
+					std::uint8_t byte = code[execPos++];
+
+					// grow as necessary
+					while (byte >= _variables.size())
+					{
+						_variables.push_back(nullptr);
+					}
+
+					if (_variables[byte] != nullptr)
+					{
+						// see if int is already stored (updating the value)
+						int* var = static_cast<int*>(_variables[byte]);
+						*var = _stack.pop<int>();
+					}
+					else
+					{
+						// allocate new int and store it
+						int* var = new int(_stack.pop<int>());
+						_variables[byte] = var;
+					}
+					
 					break;
 				}
 				case INT_LOAD:
 				{
+					// grab slot to load from
+					std::uint8_t byte = code[execPos++];
+
+					// grab pointer to int
+					int* ptr = static_cast<int*>(_variables[byte]);
+					if (ptr)
+					{
+						// load int
+						_stack.push<int>(*ptr);
+					}
+
 					break;
 				}
 				case INT_ADD:
@@ -92,10 +124,30 @@ void VirtualMachine::execute_bytecode(std::uint8_t* code, size_t bufferSize)
 					// pop the top two
 					int top = _stack.pop<int>();
 					int bottom = _stack.pop<int>();
-					// modulo them
+					// % them
 					int result = bottom % top;
 					// push result
 					_stack.push<int>(result);
+					break;
+				}
+				case INT_TO_FLOAT:
+				{
+					// pop the int
+					int from = _stack.pop<int>();
+					// cast to float
+					float to = (float)from;
+					// push the float
+					_stack.push<float>(to);
+					break;
+				}
+				case FLOAT_TO_INT:
+				{
+					// pop the float
+					float from = _stack.pop<float>();
+					// cast to int
+					int to = (int)from;
+					// push the int
+					_stack.push<int>(to);
 					break;
 				}
 				default:
@@ -105,6 +157,18 @@ void VirtualMachine::execute_bytecode(std::uint8_t* code, size_t bufferSize)
 					break;
 				}
 			}
+		}
+	}
+}
+
+VirtualMachine::~VirtualMachine()
+{
+	// free any allocated variables that didn't get freed
+	for (auto ptr : _variables)
+	{
+		if (ptr)
+		{
+			delete ptr;
 		}
 	}
 }

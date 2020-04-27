@@ -10,8 +10,7 @@ float GlobalFloat = 4.0F; // delcare and initialize a variable
 
 func: ExecuteAction(int32 argument) -> int32
 {
-	int32 output = argument;
-	output *= 2;
+	int32 output = argument * 2;
 	if (output > 10)
 	{
 		output = 10;
