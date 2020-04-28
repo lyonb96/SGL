@@ -45,6 +45,7 @@ Long-term, here are some goals for SGL:
 - Support manipulating C++ native objects by registering the objects with the VM
 - Support internal function calls
 - Support basic structs being declared in SGL
+
 Given that this is a pet project so I can learn more about compilers and code execution in general, I have no timeline on any of these features.
 
 # Can I test it?
