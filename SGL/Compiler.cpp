@@ -1036,9 +1036,10 @@ void execute_compiler_test()
 {
 	std::cout << "---------------- SGL Compiler function tests ----------------" << std::endl;
 	std::cout << "testing is_str_int():" << std::endl;
-	std::cout << "\tis_str_int(\"This is not an int.\") Expected: false. Actual: " << is_str_int("This is not an int.") << std::endl;
-	std::cout << "\tis_str_int(\"48\") Expected: true. Actual: " << is_str_int("48") << std::endl;
-	std::cout << "\tis_str_int(\"-58023531245\") Expected: true. Actual: " << is_str_int("-58023531245") << std::endl;
+	TEST_MACRO(is_str_int, "This is not an int.", 0);
+	TEST_MACRO(is_str_int, "48", 1);
+	TEST_MACRO(is_str_int, "-5802351245", 1);
+	TEST_MACRO(is_str_int, "1 2 3 4", 0);
 
 	std::cout << "testing is_str_float():" << std::endl;
 	TEST_MACRO(is_str_float, "12345.0F", 1);
