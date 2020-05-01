@@ -2,41 +2,20 @@
 
 #include <string>
 
-#include "Script.h"
+/**
+ * Compiler V2
+ * 
+ * The old compiler file was littered with... lessons learned, to put it nicely.
+ * I wanted to start fresh and keep only the parts that have worked so far, as 
+ * well as begin building out a more sensible architecture.
+ *
+ * I don't want the compiler to be tied to an instance of some class, because I
+ * would like for scripts to be able to handle their own recompilation at runtime.
+ * Therefore instead of something like "class SGLCompiler" I'd rather have functions
+ * exposed to handle it.
+ */
 
-enum class SGLResult
+namespace SGL
 {
-    // Success result
-    SGL_OK,
-    // General error for when invalid source is passed in but no specific error could be found
-    // An example is trying to compile something that isn't SGL, or compiling an empty file
-    SGL_ERR_SOURCE_INVALID,
-    // Error thrown when an unclosed block comment is detected
-    SGL_ERR_UNCLOSED_BLOCK_COMMENT,
-    // Error when a line is incomplete (such as a variable type without an identifier)
-    SGL_ERR_UNEXPECTED_END_OF_LINE,
-    // Error when an unknown type is found
-    SGL_ERR_UNKNOWN_TYPE,
-    // Error when a missing semicolon is found
-    SGL_ERR_MISSING_SEMICOLON,
-    // Error when a missing curly brace is found
-    SGL_ERR_MISSING_CURLY_BRACE,
-    // Error when a missing parentheses is found
-    SGL_ERR_MISSING_PARENTHESES,
-    // Error when a variable or function identifier is invalid
-    SGL_ERR_INVALID_IDENTIFIER,
-    // Error when an operator is found but there is no operand to the left of it
-    SGL_ERR_MISSING_LEFT_OPERAND,
-    // Error when an operator is found but there is no operand to the right of it
-    SGL_ERR_MISSING_RIGHT_OPERAND
-};
-
-/**
- * Compiles an SGL script represented as a string
- */
-SGLResult compile_sgl(std::string source);
-
-/**
- * Runs some test cases against internal compiler functions
- */
-void execute_compiler_test();
+    bool compile_source(std::string source);
+}

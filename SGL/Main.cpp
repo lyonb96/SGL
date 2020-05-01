@@ -7,7 +7,7 @@
 #include <sstream>
 
 #include "SGLTypes.h"
-#include "Compiler.h"
+#include "Compiler_Old.h"
 #include "VirtualMachine.h"
 #include "Instructions.h"
 #include "Helpers.h"
