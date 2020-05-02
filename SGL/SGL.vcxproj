@@ -150,6 +150,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Compiler.cpp" />
     <ClCompile Include="Compiler_Old.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="SGLTypes.cpp" />
@@ -158,6 +159,7 @@
     <ClCompile Include="VirtualMachine.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Compiler.h" />
     <ClInclude Include="Compiler_Old.h" />
     <ClInclude Include="Helpers.h" />
     <ClInclude Include="Instructions.h" />

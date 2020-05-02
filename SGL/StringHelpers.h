@@ -23,6 +23,20 @@ namespace SGL
     std::size_t find_pair(const std::string& str, char open, char close, std::size_t first);
 
     /**
+     * Finds a matching pair of two characters, starting from the end rather than the beginning
+     * Used to find two symbols that encapsulate an area but may include nested versions of the same symbols
+     * Examples include (), {}, "", '', etc.
+     *
+     * Algorithm:
+     * Check each character beginning at 'last.'
+     * For each instance of 'open' found, a counter is decreased.
+     * For each instance of 'close' found, the counter is increased
+     * When the counter reaches 0, the character at the current position is the matching opener
+     * If the start of the string is found and counter > 0, the function returns std::string::npos
+     */
+    std::size_t find_reverse_pair(const std::string& str, char open, char close, std::size_t last);
+
+    /**
      * Finds the closing parenthesis that goes with an opening parenthesis.
      * firstPar should be the index of the first parenthesis to find a match for
      * Returns std::string::npos if no match is found
@@ -30,11 +44,25 @@ namespace SGL
     std::size_t find_matching_parenthesis(const std::string& str, std::size_t firstPar);
 
     /**
+     * Finds the opening parenthesis that goes with a closing parenthesis.
+     * lastPar should be the index of the last parenthesis to find a match for
+     * Returns std::string::npos if no match is found
+     */
+    std::size_t find_reverse_matching_parenthesis(const std::string& str, std::size_t lastPar);
+
+    /**
      * Finds the closing bracket that goes with an opening bracket.
-     * firstPar should be the index of the first bracket to find a match for
+     * firstBracket should be the index of the first bracket to find a match for
      * Returns std::string::npos if no match is found
      */
     std::size_t find_matching_bracket(const std::string& str, std::size_t firstBracket);
+
+    /**
+     * Finds the opening bracket that goes with a closing bracket.
+     * lastBracket should be the index of the last bracket to find a match for
+     * Returns std::string::npos if no match is found
+     */
+    std::size_t find_reverse_matching_bracket(const std::string& str, std::size_t lastBracket);
 
     /**
      * Returns a substring of the given source that encapsulates the full line of a character
@@ -98,7 +126,22 @@ namespace SGL
     void strip_whitespace_at(std::string& in, std::size_t pos);
 
     /**
+     * Strips leading characters until the predicate returns false
+     */
+    void strip_leading_if(std::string& in, bool (*pred)(unsigned char c));
+
+    /**
+     * Strips tailing characters until the predicate returns false
+     */
+    void strip_tailing_if(std::string& in, bool (*pred)(unsigned char c));
+
+    /**
      * Returns true if the given index of the given string is inside any parentheses
      */
     bool is_in_parentheses(const std::string& str, std::size_t i);
+
+    /**
+     * Returns true if 'str' starts with 'query' (case-sensitive)
+     */
+    bool str_starts_with(const std::string& str, const std::string& query);
 }

@@ -9,7 +9,7 @@ namespace SGL
 		std::size_t closePos = std::string::npos;
 		auto counter = 0;
 
-		for (size_t i = first; i < str.length(); ++i)
+		for (std::size_t i = first; i < str.length(); ++i)
 		{
 			if (str[i] == open)
 			{
@@ -30,14 +30,49 @@ namespace SGL
 		return closePos;
 	}
 
+	std::size_t find_reverse_pair(const std::string& str, char open, char close, std::size_t last)
+	{
+		std::size_t openPos = std::string::npos;
+		auto counter = 0;
+
+		for (std::size_t i = last; i > 0; --i)
+		{
+			if (str[i] == open)
+			{
+				++counter;
+			}
+			else if (str[i] == close)
+			{
+				--counter;
+			}
+
+			if (counter == 0)
+			{
+				openPos = i;
+			}
+		}
+
+		return openPos;
+	}
+
 	std::size_t find_matching_parenthesis(const std::string& str, std::size_t firstPar)
 	{
 		return find_pair(str, '(', ')', firstPar);
 	}
 
+	std::size_t find_reverse_matching_parenthesis(const std::string& str, std::size_t lastPar)
+	{
+		return find_reverse_pair(str, '(', ')', lastPar);
+	}
+
 	std::size_t find_matching_bracket(const std::string& str, std::size_t firstBracket)
 	{
 		return find_pair(str, '{', '}', firstBracket);
+	}
+
+	std::size_t find_reverse_matching_bracket(const std::string& str, std::size_t lastBracket)
+	{
+		return find_reverse_pair(str, '{', '}', lastBracket);
 	}
 
 	std::string get_full_line(const std::string& src, std::size_t pos)
@@ -169,6 +204,22 @@ namespace SGL
 		}
 	}
 
+	void strip_leading_if(std::string& in, bool (*pred)(unsigned char c))
+	{
+		while (in.length() > 0 && pred(in.front()))
+		{
+			in.erase(0, 1);
+		}
+	}
+
+	void strip_tailing_if(std::string& in, bool (*pred)(unsigned char c))
+	{
+		while (in.length() > 0 && pred(in.back()))
+		{
+			in.pop_back();
+		}
+	}
+
 	bool is_in_parentheses(const std::string& str, std::size_t i)
 	{
 		std::size_t openParens = 0;
@@ -187,5 +238,10 @@ namespace SGL
 		}
 
 		return (openParens > 0);
+	}
+
+	bool str_starts_with(const std::string& str, const std::string& query)
+	{
+		return str.rfind(query, 0) != std::string::npos;
 	}
 }

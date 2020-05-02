@@ -12,6 +12,11 @@
 #include "Instructions.h"
 #include "Helpers.h"
 
+#include "Compiler.h"
+
+auto testScript = 
+"func: GetHeadshotMultiplier() -> float { return 2.0F; }\n\nfunc: ExecuteAction(float in) -> void\n{\n\tfloat out = in * GetHeadshotMultiplier();\n\tprint(\"Total damage out: \" + out);\n}";
+
 int input_loop()
 {
 	std::string filename;
@@ -74,6 +79,11 @@ int main(const char** argv, int argc)
 {
 	// Hello world in SGL
 	std::string test = "func: Hello() { print(\"Hello, world!\"); }";
+
+	SGL::compile_source("func: Hello(int32 i, float j) -> int32 {}");
+	SGL::compile_source("func: Test3(int32 p){}");
+	SGL::compile_source("func: TestLogic() { if (5 == 5) { print(\"Yep, numbers still work!\"); } }");
+	SGL::compile_source(testScript);
 
 	register_datatypes();
 
